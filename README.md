@@ -1,8 +1,3 @@
-
-Here’s the updated README incorporating all the detailed functionality, the TUI, Git integration, and future plans:
-
----
-
 # CPM: Cancerous Project Manager  
 
 **CPM** (Cancerous Project Manager) is a **bash-based C++ project manager** built for developers who crave a streamlined project management experience without the baggage of full IDEs. Whether you’re using Neovim or just prefer lightweight tools, CPM has you covered with its intuitive TUI and Git-backed folder structure management.  
