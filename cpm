@@ -1,0 +1,317 @@
+#!/bin/bash
+
+# Function to initialize git and make first commit
+function init_git() {
+    local DIR="$1"
+    local MSG="$2"
+    cd "$DIR" || return 1
+    git init
+    git add .
+    git commit -m "$MSG"
+    cd - >/dev/null || return 1
+}
+
+# Function to make git commit
+function make_commit() {
+    local MSG="$1"
+    git add .
+    git commit -m "$MSG"
+}
+
+function show_project_info() {
+    # ASCII Art for CPM
+    echo -e "\033[1;34m"  # Set bright blue color
+    cat << "EOF"
+ ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓██████████████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+ ░▒▓██████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+
+EOF
+    echo -e "\033[0m"  # Reset color
+
+    # Script and system information
+    echo -e "\033[1;32mCreated by Dr.Zombie\033[0m"
+    echo "----------------------------------------"
+    echo "Script Version: 1.0.0"
+    echo "Current User: $(whoami)"
+    echo "System: $(uname -s)"
+    echo "----------------------------------------"
+
+    # Check if we're in a project directory
+    if [ ! -d "./src" ] && [ ! -d "./include" ]; then
+        echo "Error: Not in a valid project directory!"
+        echo "Please run this command from the root of a CPM project."
+        return 1
+    fi
+
+# Display git structure
+    echo -e "\n\033[1;36mGit Status:\033[0m"
+    echo "----------------------------------------"
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        # Show current branch
+        echo -e "\n\033[1;33mCurrent Branch:\033[0m"
+        git branch --show-current
+        
+        # Show branch tree using --no-pager to display directly in terminal
+        echo -e "\n\033[1;33mBranch Tree:\033[0m"
+        git --no-pager log --graph --format="%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)<%an>%C(reset)%C(bold yellow)%d%C(reset)" --all -n 10
+        
+        # Show status
+        echo -e "\n\033[1;33mModified Files:\033[0m"
+        git status -s
+        
+        # Show last 5 commits
+        echo -e "\n\033[1;33mRecent Commits:\033[0m"
+        git --no-pager log --oneline -n 5
+        
+        # Show number of commits
+        echo -e "\n\033[1;33mTotal Commits:\033[0m"
+        git rev-list --count HEAD
+    else
+        echo "Not a git repository!"
+    fi
+
+
+    # Find and display C++ classes
+    echo -e "\n\033[1;36mC++ Classes Found:\033[0m"
+    echo "----------------------------------------"
+    
+    # Search for .hpp files in src and include directories
+    local class_files=$(find . -type f -name "*.hpp" -o -name "*.h" 2>/dev/null)
+    
+    if [ -z "$class_files" ]; then
+        echo "No C++ classes found in the project."
+    else
+        while IFS= read -r file; do
+            # Extract class names using grep
+            local classes=$(grep -l "class" "$file" 2>/dev/null)
+            if [ ! -z "$classes" ]; then
+                echo "📄 ${file#./}"
+                # Try to extract class names
+                grep "class" "$file" | sed 's/class\s\+\([a-zA-Z0-9_]\+\).*/  └─ \1/' 2>/dev/null
+            fi
+        done <<< "$class_files"
+    fi
+    
+    echo -e "\n----------------------------------------"
+}
+
+function remove_class() {
+    local CLASS_NAME=$1
+    local CLASS_DIR="./src/$CLASS_NAME"
+    
+    if [ ! -d "$CLASS_DIR" ]; then
+        echo "Error: Class directory $CLASS_DIR not found!"
+        return 1
+    fi
+    
+    # Remove from git tracking
+    git rm -r "$CLASS_DIR"
+    rm -rf "$CLASS_DIR"
+    
+    # Commit the removal
+    make_commit "Removing: class $CLASS_NAME"
+    
+    echo "Class $CLASS_NAME removed successfully."
+}
+
+function remove_header() {
+    local HEADER_NAME=$1
+    local HEADER_FILE="./src/$HEADER_NAME.hpp"
+    
+    if [ ! -f "$HEADER_FILE" ]; then
+        echo "Error: Header file $HEADER_FILE not found!"
+        return 1
+    fi
+    
+    # Remove from git tracking
+    git rm "$HEADER_FILE"
+    
+    # Commit the removal
+    make_commit "Removing: header $HEADER_NAME"
+    
+    echo "Header $HEADER_NAME removed successfully."
+}
+
+function add_class() {
+    local CLASS_NAME=$1
+    local CLASS_DIR="./src/$CLASS_NAME"
+    mkdir -p "$CLASS_DIR"
+    
+    # Create class files
+    echo -e "#include \"$CLASS_NAME.hpp\"\n\n// Implement $CLASS_NAME methods here" > "$CLASS_DIR/$CLASS_NAME.cpp"
+    echo -e "#pragma once\n\nclass $CLASS_NAME {\npublic:\n    $CLASS_NAME();\n    ~$CLASS_NAME();\n\n    void exampleMethod();\n};" > "$CLASS_DIR/$CLASS_NAME.hpp"
+    
+    # Add to git and commit
+    make_commit "Added: class $CLASS_NAME"
+    
+    echo "Class $CLASS_NAME created successfully in $CLASS_DIR."
+}
+
+function add_header() {
+    local HEADER_NAME=$1
+    local HEADER_FILE="./src/$HEADER_NAME.hpp"
+    
+    echo -e "#pragma once\n\n// Add declarations for $HEADER_NAME here" > "$HEADER_FILE"
+    
+    # Add to git and commit
+    make_commit "Added: header $HEADER_NAME"
+    
+    echo "Header-only file $HEADER_NAME created successfully at $HEADER_FILE."
+}
+
+function create_new_project() {
+    local PROJECT_NAME=$1
+    
+    # Base directories
+    local SRC_DIR="./$PROJECT_NAME/src"
+    local APPS_DIR="./$PROJECT_NAME/apps"
+    local INCLUDE_DIR="./$PROJECT_NAME/include"
+    local BUILD_DIR="./$PROJECT_NAME/build"
+    local TESTS_DIR="./$PROJECT_NAME/tests"
+    local DOCS_DIR="./$PROJECT_NAME/docs"
+    local LIBS_DIR="./$PROJECT_NAME/libs"
+    local BIN_DIR="./$PROJECT_NAME/bin"
+    local CMAKE_DIR="./$PROJECT_NAME/cmake"
+
+    # Create base directory structure
+    mkdir -p "$SRC_DIR" "$APPS_DIR" "$INCLUDE_DIR" "$BUILD_DIR" "$TESTS_DIR" "$DOCS_DIR" "$LIBS_DIR" "$BIN_DIR" "$CMAKE_DIR"
+
+    # Download CPM.cmake
+    curl -s -S -L "https://github.com/cpm-cmake/CPM.cmake/releases/latest/download/CPM.cmake" -o "$CMAKE_DIR/CPM.cmake"
+
+    # Create example files
+    echo -e "// Main entry point for the project" > "$APPS_DIR/main.cpp"
+    echo -e "#pragma once\n\n// Add your headers here" > "$INCLUDE_DIR/example.h"
+    echo -e "#include <iostream>\n\nint main() {\n    std::cout << \"Hello, $PROJECT_NAME!\" << std::endl;\n    return 0;\n}" > "$APPS_DIR/main.cpp"
+    echo -e "# Test files go here" > "$TESTS_DIR/README.md"
+    echo -e "# Documentation for $PROJECT_NAME" > "$DOCS_DIR/README.md"
+
+    # Create a CMakeLists.txt file with CPM support
+    cat << EOF > "./$PROJECT_NAME/CMakeLists.txt"
+cmake_minimum_required(VERSION 3.10)
+project($PROJECT_NAME)
+
+# Include CPM package manager
+include(cmake/CPM.cmake)
+
+set(CMAKE_CXX_STANDARD 17)
+
+# Set output directories for libraries and binaries
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY \${CMAKE_BINARY_DIR}/libs)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY \${CMAKE_BINARY_DIR}/libs)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY \${CMAKE_BINARY_DIR}/bin)
+
+# Add source directories recursively
+file(GLOB_RECURSE SOURCES src/*.cpp)
+file(GLOB_RECURSE HEADERS src/*.hpp)
+
+# Create static and shared libraries
+add_library(${PROJECT_NAME}_static STATIC \${SOURCES})
+add_library(${PROJECT_NAME}_shared SHARED \${SOURCES})
+
+# Add executable
+add_executable($PROJECT_NAME apps/main.cpp)
+
+# Link executable to shared library
+target_link_libraries($PROJECT_NAME 
+    ${PROJECT_NAME}_shared
+)
+EOF
+
+    # Initialize git and make first commit
+    init_git "./$PROJECT_NAME" "Created Project: $PROJECT_NAME"
+    
+    echo "Project $PROJECT_NAME created successfully with git initialization!"
+}
+
+# Main command parser
+case "$1" in
+    "new")
+        if [ -z "$2" ]; then
+            echo "Usage: cpm new <project_name>"
+            exit 1
+        fi
+        create_new_project "$2"
+        ;;
+        
+    "add")
+        case "$2" in
+            "class")
+                if [ -z "$3" ]; then
+                    echo "Usage: cpm add class <class_name>"
+                    exit 1
+                fi
+                add_class "$3"
+                ;;
+                
+            "header")
+                if [ -z "$3" ]; then
+                    echo "Usage: cpm add header <header_name>"
+                    exit 1
+                fi
+                add_header "$3"
+                ;;
+                
+            "package")
+                if [ -z "$3" ]; then
+                    echo "Usage: cpm add package <package_name> [version]"
+                    echo "Supported packages: fmt, spdlog, googletest, boost, nlohmann_json, opencv"
+                    exit 1
+                fi
+                add_package "$3" "$4"
+                ;;
+                
+            *)
+                echo "Unknown add command. Available commands: class, header, package"
+                exit 1
+                ;;
+        esac
+        ;;
+        
+    "rm")
+        case "$2" in
+            "class")
+                if [ -z "$3" ]; then
+                    echo "Usage: cpm rm class <class_name>"
+                    exit 1
+                fi
+                remove_class "$3"
+                ;;
+                
+            "header")
+                if [ -z "$3" ]; then
+                    echo "Usage: cpm rm header <header_name>"
+                    exit 1
+                fi
+                remove_header "$3"
+                ;;
+                
+            *)
+                echo "Unknown remove command. Available commands: class, header"
+                exit 1
+                ;;
+        esac
+        ;;
+        
+    "info")
+        show_project_info
+        ;;
+        
+    *)
+        echo "CPM - C++ Project Manager"
+        echo "Usage:"
+        echo "  cpm new <project_name>        Create new project"
+        echo "  cpm add class <name>          Add new class"
+        echo "  cpm add header <name>         Add new header"
+        echo "  cpm add package <name> [ver]  Add package"
+        echo "  cpm rm class <name>           Remove class"
+        echo "  cpm rm header <name>          Remove header"
+        echo "  cpm info                      Show project information"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,747 @@
+#!/bin/bash
+
+# Check for dialog/whiptail
+if command -v dialog >/dev/null 2>&1; then
+    DIALOG=dialog
+elif command -v whiptail >/dev/null 2>&1; then
+    DIALOG=whiptail
+else
+    echo "Error: dialog or whiptail is required. Please install one of them."
+    exit 1
+fi
+
+# Color configuration section
+export NEWT_COLORS='
+root=default,default
+window=default,default
+shadow=default,default
+border=white,default
+title=white,default
+button=black,white
+actbutton=white,blue
+checkbox=default,default
+actcheckbox=black,white
+entry=default,default
+label=default,default
+listbox=default,default
+actlistbox=black,white
+textbox=default,default
+acttextbox=black,white
+helpline=default,default
+roottext=default,default
+emptyscale=default,default
+fullscale=default,default
+disentry=gray,default
+compactbutton=default,default
+actsellistbox=black,white
+sellistbox=default,default'
+
+# Function to setup dialog colors if using dialog instead of whiptail
+function setup_dialog_colors() {
+    if [ "$DIALOG" = "dialog" ]; then
+        export DIALOG_COLORS=1
+        export DIALOG_COLOR=1
+        
+        # Dialog color configuration
+        export DIALOG_BACKTITLE="\Z0"
+        export DIALOG_TITLE="\Z0"
+        export DIALOG_ITEM="\Z0"
+        export DIALOG_MENU="\Z0"
+        export DIALOG_ITEMHELP="\Z0"
+        export DIALOG_ESC="\Z0"
+        
+        # Configure dialog to use terminal background
+        dialog --create-rc ~/.dialogrc
+        sed -i 's/screen_color = (CYAN,BLUE,ON)/screen_color = (CYAN,DEFAULT,OFF)/' ~/.dialogrc
+        sed -i 's/dialog_color = (WHITE,BLACK,OFF)/dialog_color = (WHITE,DEFAULT,OFF)/' ~/.dialogrc
+        sed -i 's/title_color = (YELLOW,BLACK,ON)/title_color = (WHITE,DEFAULT,OFF)/' ~/.dialogrc
+    fi
+}
+
+# Check for dialog/whiptail and setup colors
+if command -v dialog >/dev/null 2>&1; then
+    DIALOG=dialog
+    setup_dialog_colors
+elif command -v whiptail >/dev/null 2>&1; then
+    DIALOG=whiptail
+else
+    echo "Error: dialog or whiptail is required. Please install one of them."
+    exit 1
+fi
+
+# Get terminal size with fallback values
+TERM_HEIGHT=$(tput lines 2>/dev/null || echo 24)
+TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
+DIALOG_HEIGHT=$((TERM_HEIGHT-8))
+DIALOG_WIDTH=$((TERM_WIDTH-20))
+
+# Function to show ASCII art in terminal colors
+function show_ascii_art() {
+    local term_fg=$(tput setaf 7 2>/dev/null || echo '')
+    local term_bold=$(tput bold 2>/dev/null || echo '')
+    local term_reset=$(tput sgr0 2>/dev/null || echo '')
+    
+    echo "${term_bold}${term_fg}"
+    cat << "EOF"
+ ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓██████████████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+ ░▒▓██████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+EOF
+    echo "${term_reset}"
+}
+
+function show_main_menu() {
+    while true; do
+        # Show ASCII art before menu
+        clear
+        show_ascii_art
+        
+        CHOICE=$($DIALOG --clear --title "CPM - C++ Project Manager" \
+            --menu "\nChoose an operation:" $DIALOG_HEIGHT $DIALOG_WIDTH 7 \
+            "1" "Create New Project" \
+            "2" "Create New Class" \
+            "3" "Add Header" \
+            "4" "Add Package" \
+            "5" "Show Project Info" \
+            "6" "Remove Class/Header" \
+            "7" "Exit" \
+            3>&1 1>&2 2>&3)
+
+        # ... rest of the function remains the same
+    done
+}
+
+# Update show_project_info_ui to use terminal colors
+function show_project_info_ui() {
+    local term_bold=$(tput bold 2>/dev/null || echo '')
+    local term_reset=$(tput sgr0 2>/dev/null || echo '')
+    local git_info=""
+    
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git_info+="${term_bold}Current Branch:${term_reset} $(git branch --show-current)\n\n"
+        git_info+="${term_bold}Branch Tree:${term_reset}\n"
+        git_info+="$(git --no-pager log --graph --format="%h - (%ar) %s <%an>%d" --all -n 10)\n\n"
+        git_info+="${term_bold}Modified Files:${term_reset}\n"
+        git_info+="$(git status -s)\n\n"
+        git_info+="${term_bold}Total Commits:${term_reset} $(git rev-list --count HEAD)"
+    else
+        git_info="Not a git repository!"
+    fi
+
+    $DIALOG --title "Project Information" \
+        --msgbox "$git_info" \
+        $DIALOG_HEIGHT $DIALOG_WIDTH
+}
+
+# ... rest of the previous code remains the same ...
+
+# Get terminal size
+TERM_HEIGHT=$(tput lines)
+TERM_WIDTH=$(tput cols)
+DIALOG_HEIGHT=$((TERM_HEIGHT-8))
+DIALOG_WIDTH=$((TERM_WIDTH-20))
+
+function show_main_menu() {
+    while true; do
+        CHOICE=$($DIALOG --clear --title "CPM - C++ Project Manager" \
+            --menu "Choose an operation:" $DIALOG_HEIGHT $DIALOG_WIDTH 7 \
+            "1" "Create New Project" \
+            "2" "Create New Class" \
+            "3" "Add Header" \
+            "4" "Add Package" \
+            "5" "Show Project Info" \
+            "6" "Remove Class/Header" \
+            "7" "Exit" \
+            3>&1 1>&2 2>&3)
+
+        case $? in
+            0)
+                case $CHOICE in
+                    1) create_project_wizard ;;
+                    2) create_class_wizard ;;
+                    3) create_header_wizard ;;
+                    4) add_package_wizard ;;
+                    5) show_project_info_ui ;;
+                    6) remove_item_wizard ;;
+                    7) exit 0 ;;
+                esac
+                ;;
+            1)
+                exit 1
+                ;;
+        esac
+    done
+}
+
+function class_search_wizard() {
+    local search_dir="./src"
+    local temp_file=$(mktemp)
+    local total_files=0
+    local current_file=0
+    
+    # Show initial search message
+    $DIALOG --infobox "Searching for classes... 0%" 3 40
+    
+    # Count total files first
+    total_files=$(find "$search_dir" -type f \( -name "*.hpp" -o -name "*.h" \) | wc -l)
+    
+    # Find all header files and extract class names
+    find "$search_dir" -type f \( -name "*.hpp" -o -name "*.h" \) | while read -r file; do
+        ((current_file++))
+        # Update progress
+        progress=$((current_file * 100 / total_files))
+        $DIALOG --infobox "Searching for classes... ${progress}%" 3 40
+        
+        # Extract class declarations, including those with inheritance
+        grep -n "^[[:space:]]*class[[:space:]]\+[a-zA-Z0-9_]\+" "$file" 2>/dev/null | while read -r line; do
+            # Extract class name and inheritance info
+            class_info=$(echo "$line" | sed -E 's/^[0-9]+:[ \t]*class[ \t]+([a-zA-Z0-9_]+)[ \t]*(:|[{]|$).*/\1/')
+            if [ ! -z "$class_info" ]; then
+                echo "$class_info : $(basename "$file"):$(echo "$line" | cut -d: -f1)" >> "$temp_file"
+            fi
+        done
+    done
+
+    # Remove duplicates and sort
+    sort -u "$temp_file" -o "$temp_file"
+    
+    # Create checklist items
+    local classes=()
+    while IFS= read -r line; do
+        class_name=$(echo "$line" | cut -d: -f1)
+        location=$(echo "$line" | cut -d: -f2-)
+        classes+=("$class_name" "$location" "OFF")
+    done < "$temp_file"
+    
+    # Cleanup
+    rm "$temp_file"
+    
+    # Show class selection dialog
+    if [ ${#classes[@]} -eq 0 ]; then
+        $DIALOG --msgbox "No existing classes found." 8 40
+        return 1
+    else
+        SELECTED_CLASSES=$($DIALOG --checklist "Select parent classes:" \
+            $DIALOG_HEIGHT $DIALOG_WIDTH $((${#classes[@]}/3)) \
+            "${classes[@]}" \
+            3>&1 1>&2 2>&3)
+        
+        # Handle dialog exit status
+        local exit_status=$?
+        case $exit_status in
+            0) # User pressed OK
+                echo "$SELECTED_CLASSES"
+                return 0
+                ;;
+            1) # User pressed Cancel
+                return 1
+                ;;
+            255) # User pressed ESC
+                return 255
+                ;;
+        esac
+    fi
+}
+function create_project_wizard() {
+    # Check if dialog/whiptail is available
+    if ! command -v "$DIALOG" &> /dev/null; then
+        echo "Error: $DIALOG is not installed. Please install it to continue."
+        exit 1
+    fi
+
+    # Welcome message
+    $DIALOG --title "Project Creation Wizard" \
+            --msgbox "Welcome to the Project Creation Wizard!\n\nThis wizard will help you set up a new C++ project with CMake support." 10 60
+
+    # Get project name
+    PROJECT_NAME=$($DIALOG --title "Project Name" \
+                          --inputbox "Enter the name of your project:" 8 60 \
+                          3>&1 1>&2 2>&3)
+    
+    # Exit if cancelled
+    if [ $? -ne 0 ]; then
+        echo "Project creation cancelled."
+        exit 1
+    fi
+
+    # Get project description
+    PROJECT_DESC=$($DIALOG --title "Project Description" \
+                          --inputbox "Enter a brief description of your project:" 8 60 \
+                          3>&1 1>&2 2>&3)
+    
+    # Exit if cancelled
+    if [ $? -ne 0 ]; then
+        echo "Project creation cancelled."
+        exit 1
+    fi
+
+    # Get Git username
+    GIT_USERNAME=$($DIALOG --title "Git Configuration" \
+                          --inputbox "Enter your Git username:" 8 60 \
+                          3>&1 1>&2 2>&3)
+    
+    # Exit if cancelled
+    if [ $? -ne 0 ]; then
+        echo "Project creation cancelled."
+        exit 1
+    fi
+
+    # Get Git email
+    GIT_EMAIL=$($DIALOG --title "Git Configuration" \
+                        --inputbox "Enter your Git email:" 8 60 \
+                        3>&1 1>&2 2>&3)
+    
+    # Exit if cancelled
+    if [ $? -ne 0 ]; then
+        echo "Project creation cancelled."
+        exit 1
+    fi
+
+    # Show progress gauge
+    {
+        echo "0" ; sleep 0.2
+        
+        # Base directories
+        local SRC_DIR="./$PROJECT_NAME/src"
+        local APPS_DIR="./$PROJECT_NAME/apps"
+        local INCLUDE_DIR="./$PROJECT_NAME/include"
+        local BUILD_DIR="./$PROJECT_NAME/build"
+        local TESTS_DIR="./$PROJECT_NAME/tests"
+        local DOCS_DIR="./$PROJECT_NAME/docs"
+        local LIBS_DIR="./$PROJECT_NAME/libs"
+        local BIN_DIR="./$PROJECT_NAME/bin"
+        local CMAKE_DIR="./$PROJECT_NAME/cmake"
+        
+        echo "10" ; sleep 0.2
+        
+        # Create directory structure
+        mkdir -p "$SRC_DIR" "$APPS_DIR" "$INCLUDE_DIR" "$BUILD_DIR" "$TESTS_DIR" "$DOCS_DIR" "$LIBS_DIR" "$BIN_DIR" "$CMAKE_DIR"
+        
+        echo "30" ; sleep 0.2
+        
+        # Download CPM.cmake
+        curl -s -S -L "https://github.com/cpm-cmake/CPM.cmake/releases/latest/download/CPM.cmake" -o "$CMAKE_DIR/CPM.cmake"
+        
+        echo "50" ; sleep 0.2
+        
+        # Create example files
+        echo -e "// Main entry point for the project" > "$APPS_DIR/main.cpp"
+        echo -e "#pragma once\n\n// Add your headers here" > "$INCLUDE_DIR/example.h"
+        echo -e "#include <iostream>\n\nint main() {\n    std::cout << \"Hello, $PROJECT_NAME!\" << std::endl;\n    return 0;\n}" > "$APPS_DIR/main.cpp"
+        echo -e "# Test files go here" > "$TESTS_DIR/README.md"
+        
+        echo "70" ; sleep 0.2
+        
+        # Create README with project description
+        cat << EOF > "./$PROJECT_NAME/README.md"
+# $PROJECT_NAME
+
+$PROJECT_DESC
+
+## Project Structure
+
+- \`src/\`: Source files
+- \`apps/\`: Application source files
+- \`include/\`: Header files
+- \`tests/\`: Test files
+- \`docs/\`: Documentation
+- \`libs/\`: Third-party libraries
+- \`bin/\`: Binary output directory
+- \`cmake/\`: CMake modules and configuration
+
+## Building the Project
+
+\`\`\`bash
+mkdir build && cd build
+cmake ..
+make
+\`\`\`
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+EOF
+        
+        echo "80" ; sleep 0.2
+        
+        # Create CMakeLists.txt
+        cat << EOF > "./$PROJECT_NAME/CMakeLists.txt"
+cmake_minimum_required(VERSION 3.10)
+project($PROJECT_NAME)
+
+# Include CPM package manager
+include(cmake/CPM.cmake)
+
+set(CMAKE_CXX_STANDARD 17)
+
+# Set output directories for libraries and binaries
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY \${CMAKE_BINARY_DIR}/libs)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY \${CMAKE_BINARY_DIR}/libs)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY \${CMAKE_BINARY_DIR}/bin)
+
+# Add source directories recursively
+file(GLOB_RECURSE SOURCES src/*.cpp)
+file(GLOB_RECURSE HEADERS include/*.hpp include/*.h)
+
+# Create static and shared libraries
+add_library(${PROJECT_NAME}_static STATIC \${SOURCES})
+add_library(${PROJECT_NAME}_shared SHARED \${SOURCES})
+
+# Add executable
+add_executable($PROJECT_NAME apps/main.cpp)
+
+# Link executable to shared library
+target_link_libraries($PROJECT_NAME 
+    ${PROJECT_NAME}_shared
+)
+
+# Include directories
+target_include_directories($PROJECT_NAME PUBLIC
+    \${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+EOF
+        
+        echo "90" ; sleep 0.2
+        
+        # Initialize git and configure user
+        cd "./$PROJECT_NAME"
+        git init
+        git config user.name "$GIT_USERNAME"
+        git config user.email "$GIT_EMAIL"
+        git add .
+        git commit -m "Initial commit: Created Project $PROJECT_NAME
+
+Project Description:
+$PROJECT_DESC"
+        cd ..
+        
+        echo "100"
+    } | $DIALOG --title "Creating Project" --gauge "Please wait while your project is being created..." 10 60 0
+
+    # Show completion message
+    $DIALOG --title "Project Created" \
+            --msgbox "Project $PROJECT_NAME has been created successfully!\n\nProject location: ./$PROJECT_NAME\n\nGit has been initialized with your credentials." 10 60
+}
+
+
+function create_class_wizard() {
+    # Ensure dialog is installed
+    if ! command -v $DIALOG &> /dev/null; then
+        echo "Error: $DIALOG is not installed"
+        return 1
+    fi
+
+    # Use temporary files for $DIALOG outputs to avoid terminal control sequence issues
+    temp_dir=$(mktemp -d)
+    output_file="$temp_dir/output"
+    
+    # Get class name
+    $DIALOG --backtitle "C++ Class Generator" \
+          --inputbox "Enter class name:" 8 40 \
+          2> "$output_file"
+    
+    if [ $? -ne 0 ]; then
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    CLASS_NAME=$(cat "$output_file")
+    if [ -z "$CLASS_NAME" ]; then
+        $DIALOG --msgbox "Error: Class name cannot be empty" 8 40
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    # Ask about inheritance
+    $DIALOG --backtitle "C++ Class Generator" \
+          --yesno "Would you like this class to inherit from other classes?" 8 40
+    
+directory_class_search() {
+    local search_dir="./src"
+    local temp_file=$(mktemp)
+    local total_dirs=0
+    local current_dir=0
+    
+    # Show initial search message
+    $DIALOG --infobox "Scanning directories for classes..." 3 40
+    
+    # Find directories in src that have matching hpp files
+    find "$search_dir" -type d | while read -r dir; do
+        dir_name=$(basename "$dir")
+        if [ -f "$dir/$dir_name.hpp" ]; then
+            echo "$dir_name : $dir/$dir_name.hpp" >> "$temp_file"
+        fi
+    done
+
+    # Sort the found classes
+    sort -u "$temp_file" -o "$temp_file"
+    
+    # Create checklist items
+    local classes=()
+    while IFS= read -r line; do
+        class_name=$(echo "$line" | cut -d: -f1)
+        location=$(echo "$line" | cut -d: -f2-)
+        classes+=("$class_name" "$location" "OFF")
+    done < "$temp_file"
+    
+    # Cleanup
+    rm "$temp_file"
+    
+    # Show class selection dialog
+    if [ ${#classes[@]} -eq 0 ]; then
+        $DIALOG --msgbox "No matching class directories found." 8 40
+        return 1
+    else
+        SELECTED_CLASSES=$($DIALOG --title "Available Classes" \
+            --backtitle "C++ Class Generator" \
+            --checklist "Select parent classes (space to toggle):" \
+            $DIALOG_HEIGHT $DIALOG_WIDTH $((${#classes[@]}/3)) \
+            "${classes[@]}" \
+            3>&1 1>&2 2>&3)
+        
+        # Handle dialog exit status
+        local exit_status=$?
+        case $exit_status in
+            0) # User pressed OK
+                echo "$SELECTED_CLASSES"
+                return 0
+                ;;
+            1) # User pressed Cancel
+                return 1
+                ;;
+            255) # User pressed ESC
+                return 255
+                ;;
+        esac
+    fi
+}
+
+# Main code to handle parent class selection
+PARENT_CLASSES=""
+
+        $DIALOG --backtitle "C++ Class Generator" \
+                --inputbox "Enter parent class names (space-separated):" 8 60 \
+                2> "$output_file"
+        if [ $? -eq 0 ]; then
+            PARENT_CLASSES=$(cat "$output_file")
+        fi
+
+
+    # Select features
+    $DIALOG --backtitle "C++ Class Generator" \
+          --separate-output \
+          --checklist "Select class features:" 15 60 6 \
+          "constructor" "Default constructor" ON \
+          "destructor" "Virtual destructor" ON \
+          "copy" "Copy constructor & assignment" OFF \
+          "move" "Move constructor & assignment" OFF \
+          "protected" "Protected section" OFF \
+          "private" "Private section" ON \
+          2> "$output_file"
+    
+    if [ $? -ne 0 ]; then
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    FEATURES=$(cat "$output_file")
+    
+    # Create class directory
+    CLASS_DIR="./src/$CLASS_NAME"
+    mkdir -p "$CLASS_DIR"
+    
+    # Generate header file
+    {
+        echo "#pragma once"
+        echo
+        
+        # Include parent headers
+        if [ ! -z "$PARENT_CLASSES" ]; then
+            for parent in $PARENT_CLASSES; do
+                echo "#include \"../$parent/$parent.hpp\""
+            done
+            echo
+        fi
+        
+        # Class declaration
+        echo "class $CLASS_NAME"
+        
+        # Inheritance
+        if [ ! -z "$PARENT_CLASSES" ]; then
+            echo -n "    : "
+            first=true
+            for parent in $PARENT_CLASSES; do
+                if [ "$first" = true ]; then
+                    echo -n "public $parent"
+                    first=false
+                else
+                    echo -n ", public $parent"
+                fi
+            done
+            echo
+        fi
+        
+        echo "{"
+        echo "public:"
+        
+        # Add selected features
+        if echo "$FEATURES" | grep -q "constructor"; then
+            echo "    // Default constructor"
+            echo "    $CLASS_NAME();"
+            echo
+        fi
+        
+        if echo "$FEATURES" | grep -q "destructor"; then
+            echo "    // Virtual destructor"
+            echo "    virtual ~$CLASS_NAME();"
+            echo
+        fi
+        
+        if echo "$FEATURES" | grep -q "copy"; then
+            echo "    // Copy constructor"
+            echo "    $CLASS_NAME(const $CLASS_NAME& other);"
+            echo "    // Copy assignment operator"
+            echo "    $CLASS_NAME& operator=(const $CLASS_NAME& other);"
+            echo
+        fi
+        
+        if echo "$FEATURES" | grep -q "move"; then
+            echo "    // Move constructor"
+            echo "    $CLASS_NAME($CLASS_NAME&& other) noexcept;"
+            echo "    // Move assignment operator"
+            echo "    $CLASS_NAME& operator=($CLASS_NAME&& other) noexcept;"
+            echo
+        fi
+        
+        if echo "$FEATURES" | grep -q "protected"; then
+            echo "protected:"
+            echo "    // Protected member variables"
+            echo
+            echo "    // Protected member functions"
+            echo
+        fi
+        
+        if echo "$FEATURES" | grep -q "private"; then
+            echo "private:"
+            echo "    // Private member variables"
+            echo
+            echo "    // Private member functions"
+            echo
+        fi
+        
+        echo "}; // class $CLASS_NAME"
+        
+    } > "$CLASS_DIR/$CLASS_NAME.hpp"
+    
+    # Generate source file
+    {
+        echo "#include \"$CLASS_NAME.hpp\""
+        echo
+        
+        if echo "$FEATURES" | grep -q "constructor"; then
+            echo "$CLASS_NAME::$CLASS_NAME()"
+            echo "{"
+            echo "    // TODO: Implementation"
+            echo "}"
+            echo
+        fi
+        
+        if echo "$FEATURES" | grep -q "destructor"; then
+            echo "$CLASS_NAME::~$CLASS_NAME()"
+            echo "{"
+            echo "    // TODO: Implementation"
+            echo "}"
+            echo
+        fi
+        
+        if echo "$FEATURES" | grep -q "copy"; then
+            echo "$CLASS_NAME::$CLASS_NAME(const $CLASS_NAME& other)"
+            echo "{"
+            echo "    // TODO: Implementation"
+            echo "}"
+            echo
+            echo "$CLASS_NAME& $CLASS_NAME::operator=(const $CLASS_NAME& other)"
+            echo "{"
+            echo "    if (this != &other)"
+            echo "    {"
+            echo "        // TODO: Implementation"
+            echo "    }"
+            echo "    return *this;"
+            echo "}"
+            echo
+        fi
+        
+        if echo "$FEATURES" | grep -q "move"; then
+            echo "$CLASS_NAME::$CLASS_NAME($CLASS_NAME&& other) noexcept"
+            echo "{"
+            echo "    // TODO: Implementation"
+            echo "}"
+            echo
+            echo "$CLASS_NAME& $CLASS_NAME::operator=($CLASS_NAME&& other) noexcept"
+            echo "{"
+            echo "    if (this != &other)"
+            echo "    {"
+            echo "        // TODO: Implementation"
+            echo "    }"
+            echo "    return *this;"
+            echo "}"
+        fi
+        
+    } > "$CLASS_DIR/$CLASS_NAME.cpp"
+    
+    # Clean up temporary files
+    rm -rf "$temp_dir"
+    
+    # Add to git if git is available
+    if command -v git &> /dev/null && [ -d .git ]; then
+        git add "$CLASS_DIR"
+        commit_msg="Added: class $CLASS_NAME"
+        if [ ! -z "$PARENT_CLASSES" ]; then
+            commit_msg="$commit_msg (inherits from: $PARENT_CLASSES)"
+        fi
+        git commit -m "$commit_msg"
+    fi
+    
+    $DIALOG --msgbox "Class $CLASS_NAME created successfully!" 8 40
+    
+    return 0
+}
+# Add other wizard functions here (create_project_wizard, add_package_wizard, etc.)
+
+function show_project_info_ui() {
+    # Capture git info
+    local git_info=""
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git_info+="Current Branch: $(git branch --show-current)\n\n"
+        git_info+="Branch Tree:\n"
+        git_info+="$(git --no-pager log --graph --format="%h - (%ar) %s <%an>%d" --all -n 10)\n\n"
+        git_info+="Modified Files:\n"
+        git_info+="$(git status -s)\n\n"
+        git_info+="Total Commits: $(git rev-list --count HEAD)"
+    else
+        git_info="Not a git repository!"
+    fi
+
+    $DIALOG --title "Project Information" \
+        --msgbox "$git_info" \
+        $DIALOG_HEIGHT $DIALOG_WIDTH
+}
+
+function create_header_wizard(){
+    local HEADER_NAME=$1
+    local HEADER_FILE="./src/$HEADER_NAME.hpp"
+    
+    echo -e "#pragma once\n\n// Add declarations for $HEADER_NAME here" > "$HEADER_FILE"
+    
+    # Add to git and commit
+    make_commit "Added: header $HEADER_NAME"
+    
+    echo "Header-only file $HEADER_NAME created successfully at $HEADER_FILE."
+}
+
+# Start the UI
+show_main_menu

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+sudo cp cpm /usr/local/bin/cpm
+sudo cp cpm-g /usr/local/bin/cpm-g
+
