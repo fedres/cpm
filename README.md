@@ -10,7 +10,7 @@ Why "Cancerous"? Because this tool is as chaotic as its origin story: born out o
 
 ### Terminal User Interface (TUI)  
 The included TUI (shown below) provides a simple, menu-driven interface for managing your C++ projects.  
-![CPM TUI Screenshot](./Screenshot.png)  
+![CPM TUI Screenshot](./TUI-CPM.png)  
 
 ### Command-Line Options  
 Use CPM directly from the terminal with the following commands:  
